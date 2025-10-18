@@ -1,10 +1,3 @@
-De acuerdo. A ver si ahora te entiendo al 100%. El problema es que el propio chat "compila" (renderiza) el Markdown que te paso.
-
-Voy a intentarlo de esta forma: pegaré el texto crudo con una sangría de 4 espacios. Esto es un truco de Markdown para forzar a que se muestre como un bloque de texto plano, sin "compilar" los `#` o los `**`.
-
-Aquí va:
-
-````
 # DroneHordes - A Swarm Control Simulation Sandbox
 
 **Project Status: Experimental / Under Development**
@@ -78,4 +71,3 @@ This project is in its early stages. The plan is to continue exploring the follo
 * **Objective-Based Control:** Implement target zones on the screen (e.g., "go here" waypoints or "avoid this area" zones).
 * **Horde Ergonomics:** Investigate how the parameters in `config.py` (e.g., aggression, cohesion, separation) affect the swarm's "manageability" from an operator's perspective.
 * **Performance Optimization:** Implement spatial partitioning techniques (such as a Quadtree) to efficiently simulate thousands of drones.
-````
