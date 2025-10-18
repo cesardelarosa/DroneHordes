@@ -47,6 +47,27 @@ class Swarm:
     def update(self):
         self.behavior.update(self.drones)
 
+        if not self.drones:
+            return {} 
+
+        positions = np.array([d.position for d in self.drones])
+        velocities = np.array([d.velocity for d in self.drones])
+
+        com = np.mean(positions, axis=0)
+
+        speeds_sq = np.sum(velocities**2, axis=1)
+        kinetic_energy = 0.5 * config.DRONE_MASS * np.sum(speeds_sq)
+        
+        spatial_disorder = np.mean(np.linalg.norm(positions - com, axis=1))
+
+        velocity_disorder = np.mean(np.std(velocities, axis=0))
+
+        return {
+            "kinetic_energy": kinetic_energy,
+            "spatial_disorder": spatial_disorder,
+            "velocity_disorder": velocity_disorder
+        }
+
     def draw(self, screen):
         for drone in self.drones:
             drone.draw(screen)
