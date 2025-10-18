@@ -21,6 +21,10 @@ def main(drone_count):
     swarm.set_behavior(behaviors[current_mode])
     pygame.display.set_caption(f"Drone Hordes - {drone_count} Drones | MODE: {current_mode}")
 
+    terminal_width = 80
+    
+    sys.stdout.write("\n" * 4)
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -58,15 +62,21 @@ def main(drone_count):
         pygame.display.flip()
 
         if stats:
-            behavior_status = swarm.behavior.get_status()
-            stats_str = (
-                f"\x1b[2K\rMODE: {current_mode.ljust(15)} | "
+            sys.stdout.write("\x1b[4A")
+
+            mode_str = f"--- MODE: {current_mode} ---"
+            controls_str = swarm.behavior.get_controls_status()
+            params_str = swarm.behavior.get_params_status()
+            physics_str = (
                 f"K.E.: {stats['kinetic_energy']:.1f} | "
                 f"Spatial D: {stats['spatial_disorder']:.1f} | "
                 f"Vel. D: {stats['velocity_disorder']:.1f}"
-                f"{behavior_status}"
             )
-            sys.stdout.write(stats_str)
+
+            sys.stdout.write(f"\x1b[2K{mode_str.center(terminal_width)}\n")
+            sys.stdout.write(f"\x1b[2K{controls_str.center(terminal_width)}\n")
+            sys.stdout.write(f"\x1b[2K{params_str.center(terminal_width)}\n")
+            sys.stdout.write(f"\x1b[2K{physics_str.center(terminal_width)}\n")
             sys.stdout.flush()
 
         clock.tick(config.FPS)

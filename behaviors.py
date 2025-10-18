@@ -11,8 +11,11 @@ class Behavior:
     def handle_input(self, key):
         pass
 
-    def get_status(self):
-        return ""
+    def get_controls_status(self):
+        return "(No controls for this mode)"
+
+    def get_params_status(self):
+        return "-"
 
 class GasIdealBehavior(Behavior):
     def update(self, drones):
@@ -36,7 +39,7 @@ class FollowMouseBehavior(Behavior):
             speed = np.linalg.norm(drone.velocity)
             if speed > config.MOUSE_MAX_SPEED:
                 drone.velocity = (drone.velocity / speed) * config.MOUSE_MAX_SPEED
-
+        
 class BoidsBehavior(Behavior):
     def __init__(self):
         self.separation_weight = config.BOIDS_SEPARATION_WEIGHT
@@ -44,7 +47,9 @@ class BoidsBehavior(Behavior):
         self.cohesion_weight = config.BOIDS_COHESION_WEIGHT
         self.perception_radius = config.BOIDS_PERCEPTION_RADIUS
 
-        self.selected_param = 'S'
+        self.param_order = ['S', 'A', 'C', 'R']
+        self.selected_index = 0
+        
         self.param_steps = {
             'S': 0.1,
             'A': 0.1,
@@ -53,35 +58,44 @@ class BoidsBehavior(Behavior):
         }
 
     def modify_param(self, direction):
-        step = self.param_steps[self.selected_param]
+        param_name = self.param_order[self.selected_index]
+        step = self.param_steps[param_name]
         
-        if self.selected_param == 'S':
+        if param_name == 'S':
             self.separation_weight = max(0, self.separation_weight + step * direction)
-        elif self.selected_param == 'A':
+        elif param_name == 'A':
             self.alignment_weight = max(0, self.alignment_weight + step * direction)
-        elif self.selected_param == 'C':
+        elif param_name == 'C':
             self.cohesion_weight = max(0, self.cohesion_weight + step * direction)
-        elif self.selected_param == 'R':
+        elif param_name == 'R':
             self.perception_radius = max(1, self.perception_radius + step * direction)
 
     def handle_input(self, key):
         if key == pygame.K_s:
-            self.selected_param = 'S'
+            self.selected_index = 0
         elif key == pygame.K_a:
-            self.selected_param = 'A'
+            self.selected_index = 1
         elif key == pygame.K_c:
-            self.selected_param = 'C'
+            self.selected_index = 2
         elif key == pygame.K_r:
-            self.selected_param = 'R'
+            self.selected_index = 3
+        
+        elif key == pygame.K_LEFT:
+            self.selected_index = (self.selected_index - 1) % len(self.param_order)
+        elif key == pygame.K_RIGHT:
+            self.selected_index = (self.selected_index + 1) % len(self.param_order)
         
         elif key == pygame.K_UP:
             self.modify_param(1)
         elif key == pygame.K_DOWN:
             self.modify_param(-1)
 
-    def get_status(self):
+    def get_controls_status(self):
+        return "CONTROLS: (S,A,C,R) Select | (←/→) Cycle | (↑/↓) Adjust"
+
+    def get_params_status(self):
         params_str = []
-        for param in ['S', 'A', 'C', 'R']:
+        for i, param in enumerate(self.param_order):
             val_str = ""
             if param == 'S':
                 val_str = f"S:{self.separation_weight:.1f}"
@@ -92,12 +106,12 @@ class BoidsBehavior(Behavior):
             elif param == 'R':
                 val_str = f"R:{self.perception_radius}"
             
-            if param == self.selected_param:
+            if i == self.selected_index:
                 params_str.append(f"[{val_str}]")
             else:
                 params_str.append(f" {val_str} ")
         
-        return " | " + " | ".join(params_str)
+        return " | ".join(params_str)
 
     def update(self, drones):
         
