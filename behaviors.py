@@ -12,10 +12,10 @@ class Behavior:
         pass
 
     def get_controls_status(self):
-        return "(No controls for this mode)"
+        return "(N/A)"
 
     def get_params_status(self):
-        return "-"
+        return "(N/A)"
 
 class GasIdealBehavior(Behavior):
     def update(self, drones):
