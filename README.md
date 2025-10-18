@@ -16,6 +16,14 @@ The simulation explores different behavioral modes that can be switched in real-
 
 ## Getting Started
 
+### Clone
+
+Just clone this git repository main branch.
+
+```bash
+git clone https://github.com/cesardelarosa/DroneHordes.git && cd DroneHordes
+```
+
 ### Prerequisites
 
 You will need Python 3 and the libraries listed in `requirements.txt`.
