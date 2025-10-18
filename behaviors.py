@@ -33,73 +33,77 @@ class FollowMouseBehavior(Behavior):
         
 class BoidsBehavior(Behavior):
     def update(self, drones):
-        new_velocities = []
-
+        
         for drone in drones:
-            neighbors = self.get_neighbors(drone, drones)
-            
-            if not neighbors:
-                new_velocities.append(np.copy(drone.velocity))
-                continue
+            separation_vec = np.zeros(2, dtype=np.float64)
+            alignment_vec = np.zeros(2, dtype=np.float64)
+            cohesion_vec = np.zeros(2, dtype=np.float64)
+            perception_neighbors = 0
+            separation_neighbors = 0
 
-            separation_vec = self.separation(drone, neighbors)
-            alignment_vec = self.alignment(drone, neighbors)
-            cohesion_vec = self.cohesion(drone, neighbors)
-            wander_vec = self.wander()
-            
+            for other in drones:
+                if drone == other:
+                    continue
+                
+                dist_vec = other.position - drone.position
+                dist_mag = np.linalg.norm(dist_vec)
+
+                if dist_mag == 0:
+                    continue
+                
+                if dist_mag < config.BOIDS_PERCEPTION_RADIUS:
+                    perception_neighbors += 1
+                    alignment_vec += other.velocity
+                    cohesion_vec += other.position
+
+                    if dist_mag < config.BOIDS_SEPARATION_RADIUS:
+                        separation_neighbors += 1
+                        separation_vec -= (dist_vec / dist_mag) / dist_mag
+
             acceleration = np.zeros(2, dtype=np.float64)
-            acceleration += separation_vec * config.BOIDS_SEPARATION_WEIGHT
-            acceleration += alignment_vec * config.BOIDS_ALIGNMENT_WEIGHT
-            acceleration += cohesion_vec * config.BOIDS_COHESION_WEIGHT
-            acceleration += wander_vec * config.BOIDS_WANDER_STRENGTH
             
-            new_velocity = drone.velocity + acceleration
+            if separation_neighbors > 0:
+                separation_vec /= separation_neighbors
+                acceleration += self.steer(separation_vec, drone.velocity) * config.BOIDS_SEPARATION_WEIGHT
             
-            speed = np.linalg.norm(new_velocity)
+            if perception_neighbors > 0:
+                alignment_vec /= perception_neighbors
+                acceleration += self.steer(alignment_vec, drone.velocity) * config.BOIDS_ALIGNMENT_WEIGHT
+                
+                cohesion_vec /= perception_neighbors
+                cohesion_force = self.steer(cohesion_vec - drone.position, drone.velocity)
+                acceleration += cohesion_force * config.BOIDS_COHESION_WEIGHT
+
+            acceleration += self.avoid_walls(drone) * config.BOIDS_WALL_TURN_STRENGTH
+            
+            drone.velocity += acceleration
+            
+            speed = np.linalg.norm(drone.velocity)
             if speed > config.BOIDS_MAX_SPEED:
-                new_velocity = (new_velocity / speed) * config.BOIDS_MAX_SPEED
+                drone.velocity = (drone.velocity / speed) * config.BOIDS_MAX_SPEED
             elif speed < config.BOIDS_MIN_SPEED:
-                new_velocity = (new_velocity / speed) * config.BOIDS_MIN_SPEED
-            
-            new_velocities.append(new_velocity)
+                drone.velocity = (drone.velocity / speed) * config.BOIDS_MIN_SPEED
 
-        for i, drone in enumerate(drones):
-            drone.velocity = new_velocities[i]
-
-    def get_neighbors(self, drone, all_drones):
-        neighbors = []
-        for other in all_drones:
-            if drone == other:
-                continue
-            dist = np.linalg.norm(drone.position - other.position)
-            if dist < config.BOIDS_PERCEPTION_RADIUS:
-                neighbors.append(other)
-        return neighbors
-
-    def separation(self, drone, neighbors):
+    def steer(self, desired_direction, current_velocity):
+        desired_norm = np.linalg.norm(desired_direction)
+        if desired_norm > 0:
+            desired_direction = (desired_direction / desired_norm) * config.BOIDS_MAX_SPEED
+        
+        steer_force = desired_direction - current_velocity
+        return steer_force
+    
+    def avoid_walls(self, drone):
         steer = np.zeros(2, dtype=np.float64)
-        for other in neighbors:
-            dist_vec = drone.position - other.position
-            dist_mag = np.linalg.norm(dist_vec)
-            if dist_mag > 0:
-                steer += (dist_vec / dist_mag) / dist_mag
-        return steer
-    
-    def alignment(self, drone, neighbors):
-        avg_velocity = np.mean([n.velocity for n in neighbors], axis=0)
-        steer = avg_velocity - drone.velocity
-        return steer
-
-    def cohesion(self, drone, neighbors):
-        center_of_mass = np.mean([n.position for n in neighbors], axis=0)
-        direction = center_of_mass - drone.position
+        margin = config.BOIDS_WALL_MARGIN
         
-        dist = np.linalg.norm(direction)
-        if dist > 0:
-            steer = (direction / dist) * config.BOIDS_MAX_SPEED - drone.velocity
-            return steer
+        if drone.position[0] < margin:
+            steer[0] = 1.0
+        elif drone.position[0] > config.SCREEN_WIDTH - margin:
+            steer[0] = -1.0
+            
+        if drone.position[1] < margin:
+            steer[1] = 1.0
+        elif drone.position[1] > config.SCREEN_HEIGHT - margin:
+            steer[1] = -1.0
         
-        return np.zeros(2, dtype=np.float64)
-    
-    def wander(self):
-        return np.array([random.uniform(-1, 1), random.uniform(-1, 1)])
+        return steer
