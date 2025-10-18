@@ -29,7 +29,6 @@ git clone https://github.com/cesardelarosa/DroneHordes.git && cd DroneHordes
 You will need Python 3 and the libraries listed in `requirements.txt`.
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
 ```
 *(Currently: `pygame` and `numpy`)*
