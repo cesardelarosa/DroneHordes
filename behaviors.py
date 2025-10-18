@@ -8,6 +8,12 @@ class Behavior:
     def update(self, drones, *args):
         raise NotImplementedError("You must implement the 'update' method")
 
+    def handle_input(self, key):
+        pass
+
+    def get_status(self):
+        return ""
+
 class GasIdealBehavior(Behavior):
     def update(self, drones):
         pass
@@ -30,8 +36,69 @@ class FollowMouseBehavior(Behavior):
             speed = np.linalg.norm(drone.velocity)
             if speed > config.MOUSE_MAX_SPEED:
                 drone.velocity = (drone.velocity / speed) * config.MOUSE_MAX_SPEED
-        
+
 class BoidsBehavior(Behavior):
+    def __init__(self):
+        self.separation_weight = config.BOIDS_SEPARATION_WEIGHT
+        self.alignment_weight = config.BOIDS_ALIGNMENT_WEIGHT
+        self.cohesion_weight = config.BOIDS_COHESION_WEIGHT
+        self.perception_radius = config.BOIDS_PERCEPTION_RADIUS
+
+        self.selected_param = 'S'
+        self.param_steps = {
+            'S': 0.1,
+            'A': 0.1,
+            'C': 0.02,
+            'R': 5
+        }
+
+    def modify_param(self, direction):
+        step = self.param_steps[self.selected_param]
+        
+        if self.selected_param == 'S':
+            self.separation_weight = max(0, self.separation_weight + step * direction)
+        elif self.selected_param == 'A':
+            self.alignment_weight = max(0, self.alignment_weight + step * direction)
+        elif self.selected_param == 'C':
+            self.cohesion_weight = max(0, self.cohesion_weight + step * direction)
+        elif self.selected_param == 'R':
+            self.perception_radius = max(1, self.perception_radius + step * direction)
+
+    def handle_input(self, key):
+        if key == pygame.K_s:
+            self.selected_param = 'S'
+        elif key == pygame.K_a:
+            self.selected_param = 'A'
+        elif key == pygame.K_c:
+            self.selected_param = 'C'
+        elif key == pygame.K_r:
+            self.selected_param = 'R'
+        
+        elif key == pygame.K_UP:
+            self.modify_param(1)
+        elif key == pygame.K_DOWN:
+            self.modify_param(-1)
+
+    def get_status(self):
+        params_str = []
+        for param in ['S', 'A', 'C', 'R']:
+            val_str = ""
+            if param == 'S':
+                val_str = f"S:{self.separation_weight:.1f}"
+            elif param == 'A':
+                val_str = f"A:{self.alignment_weight:.1f}"
+            elif param == 'C':
+                val_str = f"C:{self.cohesion_weight:.2f}"
+            elif param == 'R':
+                val_str = f"R:{self.perception_radius}"
+            
+            if param == self.selected_param:
+                params_str.append(f"[{val_str}]")
+            else:
+                params_str.append(f" {val_str} ")
+        
+        return " | " + " | ".join(params_str)
+
     def update(self, drones):
         
         for drone in drones:
@@ -51,7 +118,7 @@ class BoidsBehavior(Behavior):
                 if dist_mag == 0:
                     continue
                 
-                if dist_mag < config.BOIDS_PERCEPTION_RADIUS:
+                if dist_mag < self.perception_radius:
                     perception_neighbors += 1
                     alignment_vec += other.velocity
                     cohesion_vec += other.position
@@ -64,15 +131,15 @@ class BoidsBehavior(Behavior):
             
             if separation_neighbors > 0:
                 separation_vec /= separation_neighbors
-                acceleration += self.steer(separation_vec, drone.velocity) * config.BOIDS_SEPARATION_WEIGHT
+                acceleration += self.steer(separation_vec, drone.velocity) * self.separation_weight
             
             if perception_neighbors > 0:
                 alignment_vec /= perception_neighbors
-                acceleration += self.steer(alignment_vec, drone.velocity) * config.BOIDS_ALIGNMENT_WEIGHT
+                acceleration += self.steer(alignment_vec, drone.velocity) * self.alignment_weight
                 
                 cohesion_vec /= perception_neighbors
                 cohesion_force = self.steer(cohesion_vec - drone.position, drone.velocity)
-                acceleration += cohesion_force * config.BOIDS_COHESION_WEIGHT
+                acceleration += cohesion_force * self.cohesion_weight
 
             acceleration += self.avoid_walls(drone) * config.BOIDS_WALL_TURN_STRENGTH
             

@@ -30,20 +30,23 @@ def main(drone_count):
                 if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
                     running = False
                 
-                if event.key == pygame.K_1:
+                elif event.key == pygame.K_1:
                     current_mode = 'Ideal Gas'
                     swarm.set_behavior(behaviors[current_mode])
                     swarm.reset_drone_velocities(speed=config.DRONE_SPEED)
                 
-                if event.key == pygame.K_2:
+                elif event.key == pygame.K_2:
                     current_mode = 'Follow Mouse'
                     swarm.set_behavior(behaviors[current_mode])
                     swarm.reset_drone_velocities(speed=0)
                 
-                if event.key == pygame.K_3:
+                elif event.key == pygame.K_3:
                     current_mode = 'Boids Flocking'
                     swarm.set_behavior(behaviors[current_mode])
                     swarm.reset_drone_velocities(speed=config.BOIDS_MAX_SPEED)
+                
+                else:
+                    swarm.behavior.handle_input(event.key)
                 
                 pygame.display.set_caption(f"Drone Hordes - {drone_count} Drones | MODE: {current_mode}")
 
@@ -55,11 +58,13 @@ def main(drone_count):
         pygame.display.flip()
 
         if stats:
+            behavior_status = swarm.behavior.get_status()
             stats_str = (
                 f"\x1b[2K\rMODE: {current_mode.ljust(15)} | "
                 f"K.E.: {stats['kinetic_energy']:.1f} | "
                 f"Spatial D: {stats['spatial_disorder']:.1f} | "
                 f"Vel. D: {stats['velocity_disorder']:.1f}"
+                f"{behavior_status}"
             )
             sys.stdout.write(stats_str)
             sys.stdout.flush()
