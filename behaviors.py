@@ -1,6 +1,7 @@
 import pygame
 import numpy as np
 import itertools
+import random
 import config
 
 class Behavior:
@@ -9,47 +10,7 @@ class Behavior:
 
 class GasIdealBehavior(Behavior):
     def update(self, drones):
-        for drone in drones:
-            drone.position += drone.velocity
-            self.check_wall_collision(drone)
-        self.handle_drone_collisions(drones)
-
-    def check_wall_collision(self, drone):
-        if drone.position[0] <= drone.radius or drone.position[0] >= config.SCREEN_WIDTH - drone.radius:
-            drone.velocity[0] *= -1
-            drone.position[0] = np.clip(drone.position[0], drone.radius, config.SCREEN_WIDTH - drone.radius)
-        
-        if drone.position[1] <= drone.radius or drone.position[1] >= config.SCREEN_HEIGHT - drone.radius:
-            drone.velocity[1] *= -1
-            drone.position[1] = np.clip(drone.position[1], drone.radius, config.SCREEN_HEIGHT - drone.radius)
-
-    def handle_drone_collisions(self, drones):
-        for drone_a, drone_b in itertools.combinations(drones, 2):
-            dist_vec = drone_a.position - drone_b.position
-            dist_mag = np.linalg.norm(dist_vec)
-            min_dist = drone_a.radius + drone_b.radius
-
-            if dist_mag < min_dist and dist_mag > 0:
-                normal = dist_vec / dist_mag
-                tangent = np.array([-normal[1], normal[0]])
-                
-                overlap = min_dist - dist_mag
-                drone_a.position += normal * overlap / 2
-                drone_b.position -= normal * overlap / 2
-
-                v1n = np.dot(drone_a.velocity, normal)
-                v1t = np.dot(drone_a.velocity, tangent)
-                v2n = np.dot(drone_b.velocity, normal)
-                v2t = np.dot(drone_b.velocity, tangent)
-
-                v1n_new = (v1n * (drone_a.mass - drone_b.mass) + 2 * drone_b.mass * v2n) / (drone_a.mass + drone_b.mass)
-                v2n_new = (v2n * (drone_b.mass - drone_a.mass) + 2 * drone_a.mass * v1n) / (drone_a.mass + drone_b.mass)
-
-                v1_new_vec = v1n_new * normal + v1t * tangent
-                v2_new_vec = v2n_new * normal + v2t * tangent
-
-                drone_a.velocity = v1_new_vec
-                drone_b.velocity = v2_new_vec
+        pass
 
 class FollowMouseBehavior(Behavior):
     def update(self, drones):
@@ -70,30 +31,75 @@ class FollowMouseBehavior(Behavior):
             if speed > config.MOUSE_MAX_SPEED:
                 drone.velocity = (drone.velocity / speed) * config.MOUSE_MAX_SPEED
         
+class BoidsBehavior(Behavior):
+    def update(self, drones):
+        new_velocities = []
+
         for drone in drones:
-            drone.position += drone.velocity
-            self.check_wall_collision(drone)
-        
-        self.handle_drone_collisions(drones)
+            neighbors = self.get_neighbors(drone, drones)
+            
+            if not neighbors:
+                new_velocities.append(np.copy(drone.velocity))
+                continue
 
-    def check_wall_collision(self, drone):
-        if drone.position[0] <= drone.radius or drone.position[0] >= config.SCREEN_WIDTH - drone.radius:
-            drone.velocity[0] *= -0.5 
-            drone.position[0] = np.clip(drone.position[0], drone.radius, config.SCREEN_WIDTH - drone.radius)
-        
-        if drone.position[1] <= drone.radius or drone.position[1] >= config.SCREEN_HEIGHT - drone.radius:
-            drone.velocity[1] *= -0.5 
-            drone.position[1] = np.clip(drone.position[1], drone.radius, config.SCREEN_HEIGHT - drone.radius)
-    
-    def handle_drone_collisions(self, drones):
-        for drone_a, drone_b in itertools.combinations(drones, 2):
-            dist_vec = drone_a.position - drone_b.position
+            separation_vec = self.separation(drone, neighbors)
+            alignment_vec = self.alignment(drone, neighbors)
+            cohesion_vec = self.cohesion(drone, neighbors)
+            wander_vec = self.wander()
+            
+            acceleration = np.zeros(2, dtype=np.float64)
+            acceleration += separation_vec * config.BOIDS_SEPARATION_WEIGHT
+            acceleration += alignment_vec * config.BOIDS_ALIGNMENT_WEIGHT
+            acceleration += cohesion_vec * config.BOIDS_COHESION_WEIGHT
+            acceleration += wander_vec * config.BOIDS_WANDER_STRENGTH
+            
+            new_velocity = drone.velocity + acceleration
+            
+            speed = np.linalg.norm(new_velocity)
+            if speed > config.BOIDS_MAX_SPEED:
+                new_velocity = (new_velocity / speed) * config.BOIDS_MAX_SPEED
+            elif speed < config.BOIDS_MIN_SPEED:
+                new_velocity = (new_velocity / speed) * config.BOIDS_MIN_SPEED
+            
+            new_velocities.append(new_velocity)
+
+        for i, drone in enumerate(drones):
+            drone.velocity = new_velocities[i]
+
+    def get_neighbors(self, drone, all_drones):
+        neighbors = []
+        for other in all_drones:
+            if drone == other:
+                continue
+            dist = np.linalg.norm(drone.position - other.position)
+            if dist < config.BOIDS_PERCEPTION_RADIUS:
+                neighbors.append(other)
+        return neighbors
+
+    def separation(self, drone, neighbors):
+        steer = np.zeros(2, dtype=np.float64)
+        for other in neighbors:
+            dist_vec = drone.position - other.position
             dist_mag = np.linalg.norm(dist_vec)
-            min_dist = drone_a.radius + drone_b.radius
+            if dist_mag > 0:
+                steer += (dist_vec / dist_mag) / dist_mag
+        return steer
+    
+    def alignment(self, drone, neighbors):
+        avg_velocity = np.mean([n.velocity for n in neighbors], axis=0)
+        steer = avg_velocity - drone.velocity
+        return steer
 
-            if dist_mag < min_dist and dist_mag > 0:
-                normal = dist_vec / dist_mag
-                overlap = min_dist - dist_mag
-                
-                drone_a.position += normal * overlap / 2
-                drone_b.position -= normal * overlap / 2
+    def cohesion(self, drone, neighbors):
+        center_of_mass = np.mean([n.position for n in neighbors], axis=0)
+        direction = center_of_mass - drone.position
+        
+        dist = np.linalg.norm(direction)
+        if dist > 0:
+            steer = (direction / dist) * config.BOIDS_MAX_SPEED - drone.velocity
+            return steer
+        
+        return np.zeros(2, dtype=np.float64)
+    
+    def wander(self):
+        return np.array([random.uniform(-1, 1), random.uniform(-1, 1)])

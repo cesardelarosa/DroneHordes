@@ -3,7 +3,7 @@ import sys
 import argparse
 import config
 from swarm import Swarm
-from behaviors import GasIdealBehavior, FollowMouseBehavior
+from behaviors import GasIdealBehavior, FollowMouseBehavior, BoidsBehavior
 
 def main(drone_count):
     pygame.init()
@@ -14,7 +14,8 @@ def main(drone_count):
     
     behaviors = {
         'Ideal Gas': GasIdealBehavior(),
-        'Follow Mouse': FollowMouseBehavior()
+        'Follow Mouse': FollowMouseBehavior(),
+        'Boids Flocking': BoidsBehavior()
     }
     current_mode = 'Ideal Gas'
     swarm.set_behavior(behaviors[current_mode])
@@ -38,6 +39,11 @@ def main(drone_count):
                     current_mode = 'Follow Mouse'
                     swarm.set_behavior(behaviors[current_mode])
                     swarm.reset_drone_velocities(speed=0)
+                
+                if event.key == pygame.K_3:
+                    current_mode = 'Boids Flocking'
+                    swarm.set_behavior(behaviors[current_mode])
+                    swarm.reset_drone_velocities(speed=config.BOIDS_MAX_SPEED)
                 
                 pygame.display.set_caption(f"Drone Hordes - {drone_count} Drones | MODE: {current_mode}")
 
