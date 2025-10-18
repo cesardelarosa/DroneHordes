@@ -3,7 +3,7 @@ import sys
 import argparse
 import config
 from swarm import Swarm
-from behaviors import GasIdealBehavior, FollowMouseBehavior, BoidsBehavior
+from behaviors import GasIdealBehavior, FollowMouseBehavior, BoidsBehavior, DirectedFlockingBehavior
 
 def main(drone_count):
     pygame.init()
@@ -15,7 +15,8 @@ def main(drone_count):
     behaviors = {
         '1': ('Ideal Gas', GasIdealBehavior()),
         '2': ('Follow Mouse', FollowMouseBehavior()),
-        '3': ('Boids Flocking', BoidsBehavior())
+        '3': ('Boids Flocking', BoidsBehavior()),
+        '4': ('Directed Flocking', DirectedFlockingBehavior())
     }
     
     current_mode_key = '1'
@@ -40,7 +41,7 @@ def main(drone_count):
                                                                          """
     print(banner)
     
-    num_ui_lines = 10
+    num_ui_lines = 11
     sys.stdout.write("\n" * num_ui_lines)
 
     running = True
@@ -59,6 +60,8 @@ def main(drone_count):
                     key_pressed = '2'
                 elif event.key == pygame.K_3:
                     key_pressed = '3'
+                elif event.key == pygame.K_4:
+                    key_pressed = '4'
                 
                 if key_pressed and key_pressed in behaviors:
                     current_mode_key = key_pressed
@@ -69,7 +72,7 @@ def main(drone_count):
                         swarm.reset_drone_velocities(speed=config.DRONE_SPEED)
                     elif current_mode_key == '2':
                         swarm.reset_drone_velocities(speed=0)
-                    elif current_mode_key == '3':
+                    elif current_mode_key == '3' or current_mode_key == '4':
                         swarm.reset_drone_velocities(speed=config.BOIDS_MAX_SPEED)
                     
                     pygame.display.set_caption(f"Drone Hordes - {drone_count} Drones | MODE: {current_mode_name}")

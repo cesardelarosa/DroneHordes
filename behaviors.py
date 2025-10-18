@@ -188,3 +188,97 @@ class BoidsBehavior(Behavior):
             steer[1] = -1.0
         
         return steer
+
+class DirectedFlockingBehavior(BoidsBehavior):
+    def __init__(self):
+        super().__init__()
+        self.target_weight = config.BOIDS_TARGET_WEIGHT
+        
+        self.param_order.append('T')
+        self.param_steps['T'] = 0.1
+
+    def handle_input(self, key):
+        super().handle_input(key)
+        if key == pygame.K_t:
+            self.selected_index = self.param_order.index('T')
+
+    def get_controls_status(self):
+        return "CONTROLS: (S,A,C,R,T) Select | (←/→) Cycle | (↑/↓) Adjust"
+
+    def get_params_status(self):
+        params_str = []
+        for i, param in enumerate(self.param_order):
+            val_str = ""
+            if param == 'S':
+                val_str = f"S:{self.separation_weight:.1f}"
+            elif param == 'A':
+                val_str = f"A:{self.alignment_weight:.1f}"
+            elif param == 'C':
+                val_str = f"C:{self.cohesion_weight:.2f}"
+            elif param == 'R':
+                val_str = f"R:{self.perception_radius}"
+            elif param == 'T':
+                val_str = f"T:{self.target_weight:.1f}"
+            
+            if i == self.selected_index:
+                params_str.append(f"[{val_str}]")
+            else:
+                params_str.append(f" {val_str} ")
+        
+        return " | ".join(params_str)
+
+    def update(self, drones):
+        mouse_pos = np.array(pygame.mouse.get_pos(), dtype=np.float64)
+        
+        for drone in drones:
+            separation_vec = np.zeros(2, dtype=np.float64)
+            alignment_vec = np.zeros(2, dtype=np.float64)
+            cohesion_vec = np.zeros(2, dtype=np.float64)
+            perception_neighbors = 0
+            separation_neighbors = 0
+
+            for other in drones:
+                if drone == other:
+                    continue
+                
+                dist_vec = other.position - drone.position
+                dist_mag = np.linalg.norm(dist_vec)
+
+                if dist_mag == 0:
+                    continue
+                
+                if dist_mag < self.perception_radius:
+                    perception_neighbors += 1
+                    alignment_vec += other.velocity
+                    cohesion_vec += other.position
+
+                    if dist_mag < config.BOIDS_SEPARATION_RADIUS:
+                        separation_neighbors += 1
+                        separation_vec -= (dist_vec / dist_mag) / dist_mag
+
+            acceleration = np.zeros(2, dtype=np.float64)
+            
+            if separation_neighbors > 0:
+                separation_vec /= separation_neighbors
+                acceleration += self.steer(separation_vec, drone.velocity) * self.separation_weight
+            
+            if perception_neighbors > 0:
+                alignment_vec /= perception_neighbors
+                acceleration += self.steer(alignment_vec, drone.velocity) * self.alignment_weight
+                
+                cohesion_vec /= perception_neighbors
+                cohesion_force = self.steer(cohesion_vec - drone.position, drone.velocity)
+                acceleration += cohesion_force * self.cohesion_weight
+
+            acceleration += self.avoid_walls(drone) * config.BOIDS_WALL_TURN_STRENGTH
+            
+            target_force = self.steer(mouse_pos - drone.position, drone.velocity)
+            acceleration += target_force * self.target_weight
+            
+            drone.velocity += acceleration
+            
+            speed = np.linalg.norm(drone.velocity)
+            if speed > config.BOIDS_MAX_SPEED:
+                drone.velocity = (drone.velocity / speed) * config.BOIDS_MAX_SPEED
+            elif speed < config.BOIDS_MIN_SPEED:
+                drone.velocity = (drone.velocity / speed) * config.BOIDS_MIN_SPEED

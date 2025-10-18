@@ -28,3 +28,6 @@ BOIDS_COHESION_WEIGHT = 0.1
 # Wall avoidance
 BOIDS_WALL_MARGIN = 50
 BOIDS_WALL_TURN_STRENGTH = 2.0
+
+# --- Directed Flocking Config (Mode 4) ---
+BOIDS_TARGET_WEIGHT = 0.5
